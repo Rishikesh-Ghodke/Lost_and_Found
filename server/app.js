@@ -9,11 +9,9 @@ const { startScheduler } = require("./utils/claimScheduler");
 // Load environment variables
 dotenv.config();
 
-// Connect to MongoDB - using direct connection string
+// Connect to MongoDB - using environment variable
 mongoose
-  .connect(
-    "mongodb+srv://rishi:RG8172004@cluster0.u65kq.mongodb.net/pict-lostfound"
-  )
+  .connect(process.env.MONGO_URI || "mongodb+srv://rishi:RG8172004@cluster0.u65kq.mongodb.net/pict-lostfound")
   .then(() => console.log("MongoDB Connected"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
@@ -93,8 +91,7 @@ try {
         middleware.handle.stack.forEach((handler) => {
           if (handler.route) {
             console.log(
-              `${Object.keys(handler.route.methods)[0]} /api${
-                handler.route.path
+              `${Object.keys(handler.route.methods)[0]} /api${handler.route.path
               }`
             );
           }
@@ -109,23 +106,26 @@ try {
 }
 //ends here
 
-// Start Server
-const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
-  console.log(`Server running in development mode on port ${PORT}`);
-  console.log(`Server is accessible at http://localhost:${PORT}`);
+// Only start server if not in serverless environment (Vercel)
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+  const server = app.listen(PORT, () => {
+    console.log(`Server running in development mode on port ${PORT}`);
+    console.log(`Server is accessible at http://localhost:${PORT}`);
 
-  // Start the claim scheduler - check every 30 minutes
-  startScheduler(30);
-});
+    // Start the claim scheduler - check every 30 minutes
+    startScheduler(30);
+  });
 
-// Handle server errors
-// server.on('error', (error) => {
-//   if (error.code === 'EADDRINUSE') {
-//     console.error(`Port ${PORT} is already in use`);
-//     process.exit(1);
-//   }
-//   throw error;
-// });
+  // Handle server errors
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use`);
+      process.exit(1);
+    }
+    throw error;
+  });
+}
 
-// module.exports = app;
+// Export for Vercel serverless functions
+module.exports = app;
