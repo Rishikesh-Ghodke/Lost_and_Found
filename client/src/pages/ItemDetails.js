@@ -149,13 +149,12 @@ const ItemDetails = () => {
                 <span
                   className={`
                   px-3 py-1 rounded-full text-sm font-semibold
-                  ${
-                    item.status === "available"
+                  ${item.status === "available"
                       ? "bg-green-100 text-green-800"
                       : item.status === "claimed"
-                      ? "bg-blue-100 text-blue-800"
-                      : "bg-purple-100 text-purple-800"
-                  }
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-purple-100 text-purple-800"
+                    }
                 `}
                 >
                   {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
@@ -196,15 +195,14 @@ const ItemDetails = () => {
               )}
 
               {/* Show verification time for ALL items */}
-              {verification && (
+              {item.verificationDateTime && (
                 <div className="flex items-center mb-2">
                   <FaClock className="text-blue-600 mr-2" />
                   <span className="text-gray-700 font-medium">
                     Verification Date & Time:
                   </span>
                   <span className="ml-2">
-                    {verification.verificationDate} at{" "}
-                    {verification.verificationTime}
+                    {formatDateTime(item.verificationDateTime)}
                   </span>
                 </div>
               )}
