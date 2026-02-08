@@ -1,0 +1,18 @@
+node_modules/
+*/node_modules/
+.qodo
+
+# Environment variables - NEVER commit these!
+.env
+server/.env
+client/.env
+.env.local
+.env.production
+
+# Build folders
+client/build
+build/
+dist/
+
+# Vercel
+.vercel
