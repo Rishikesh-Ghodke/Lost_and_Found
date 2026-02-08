@@ -18,7 +18,7 @@ const upload = require('../utils/uploadMiddleware');
 
 // Debug middleware to log all requests
 router.use((req, res, next) => {
-  console.log(`${req.method} ${req.url} - Request:`, 
+  console.log(`${req.method} ${req.url} - Request:`,
     req.file ? { ...req.body, file: req.file.filename } : req.body);
   next();
 });
@@ -34,7 +34,7 @@ router.get('/:id', getItem);
 // Middleware to handle foundDate before upload
 const parseDatesMiddleware = (req, res, next) => {
   console.log('Request body before date parsing:', req.body);
-  
+
   // Parse date if present in URL-encoded form data
   if (req.body.foundDate) {
     try {
@@ -58,21 +58,21 @@ router.post('/', parseDatesMiddleware, upload.single('image'), createItem);
 router.put('/:id/claim', async (req, res) => {
   try {
     const itemId = req.params.id;
-    
+
     // Log the request body to see what's coming in
     console.log('Claim request body:', JSON.stringify(req.body, null, 2));
-    
+
     // Get the item from the database
     const Item = require('../models/Item');
     const item = await Item.findById(itemId);
-    
+
     if (!item) {
       return res.status(404).json({
         success: false,
         message: 'Item not found'
       });
     }
-    
+
     // Only allow claiming if item isn't already delivered
     if (item.status === 'delivered') {
       return res.status(400).json({
@@ -80,33 +80,33 @@ router.put('/:id/claim', async (req, res) => {
         message: 'This item has already been delivered and cannot be claimed'
       });
     }
-    
+
     // Get user type from request
     const userType = req.body.userType || 'Student';
-    
+
     // Validate fields based on user type
     let isValid = true;
     let validationMessage = '';
-    
+
     if (userType === 'Student') {
       // Validate required student fields
       if (!req.body.studentName || !req.body.studentId || !req.body.studentYear || !req.body.contactNumber || !req.body.email) {
         isValid = false;
         validationMessage = 'All student fields are required: studentName, studentId, studentYear, contactNumber, email';
-      } 
+      }
       // Validate roll number (must be exactly 5 digits)
       else if (!/^\d{5}$/.test(req.body.studentId)) {
         isValid = false;
         validationMessage = 'Roll number must be exactly 5 digits';
       }
-    } 
+    }
     else if (userType === 'Staff') {
       // Validate required staff fields
       if (!req.body.staffName || !req.body.staffDepartment || !req.body.mobileNo || !req.body.email) {
         isValid = false;
         validationMessage = 'All staff fields are required: staffName, staffDepartment, mobileNo, email';
       }
-    } 
+    }
     else if (userType === 'Guard' || userType === 'Helper') {
       // Validate required guard/helper fields
       const nameField = userType === 'Guard' ? 'guardName' : 'helperName';
@@ -115,32 +115,32 @@ router.put('/:id/claim', async (req, res) => {
         validationMessage = `All ${userType.toLowerCase()} fields are required: ${nameField}, email`;
       }
     }
-    
+
     // Validate contact number if provided (must be exactly 10 digits)
     if (isValid && req.body.contactNumber && !/^\d{10}$/.test(req.body.contactNumber)) {
       isValid = false;
       validationMessage = 'Contact number must be exactly 10 digits';
     }
-    
+
     // Validate mobile number for staff if provided (must be exactly 10 digits)
     if (isValid && userType === 'Staff' && !/^\d{10}$/.test(req.body.mobileNo)) {
       isValid = false;
       validationMessage = 'Mobile number must be exactly 10 digits';
     }
-    
+
     // Validate email format
     if (isValid && req.body.email && !/^\S+@\S+\.\S+$/.test(req.body.email)) {
       isValid = false;
       validationMessage = 'Please provide a valid email address';
     }
-    
+
     if (!isValid) {
       return res.status(400).json({
         success: false,
         message: validationMessage
       });
     }
-    
+
     // Check if this user has already claimed this item
     let existingClaim;
     if (userType === 'Student') {
@@ -160,14 +160,14 @@ router.put('/:id/claim', async (req, res) => {
         claim => claim.userType === 'Helper' && claim.helperName === req.body.helperName && claim.email === req.body.email
       );
     }
-    
+
     if (existingClaim) {
       return res.status(400).json({
         success: false,
         message: 'You have already claimed this item'
       });
     }
-    
+
     // Create a new claim object with all potential fields
     const newClaim = {
       userType,
@@ -187,29 +187,30 @@ router.put('/:id/claim', async (req, res) => {
       contactNumber: req.body.contactNumber || '',
       email: req.body.email || ''
     };
-    
+
     // Initialize claims array if it doesn't exist
     if (!item.claims) {
       item.claims = [];
     }
-    
+
     // Add to claims array and update item status
     item.claims.push(newClaim);
-    
+
     // Set status to claimed if not already
     if (item.status !== 'claimed') {
       item.status = 'claimed';
     }
-    
+
     // Calculate verification date if not set (24 hours after item creation)
     if (!item.verificationDateTime) {
       const verificationDate = new Date(item.createdAt);
       verificationDate.setDate(verificationDate.getDate() + 1);
       item.verificationDateTime = verificationDate;
     }
-    
+
+
     await item.save();
-    
+
     // Format verification time for the response
     const verificationDate = new Date(item.verificationDateTime);
     const formattedVerificationDate = verificationDate.toLocaleDateString('en-US', {
@@ -218,12 +219,12 @@ router.put('/:id/claim', async (req, res) => {
       month: 'long',
       day: 'numeric'
     });
-    
+
     const formattedVerificationTime = verificationDate.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit'
     });
-    
+
     // Get the name of the claimant based on user type
     let claimantName = '';
     if (userType === 'Student') {
@@ -235,45 +236,48 @@ router.put('/:id/claim', async (req, res) => {
     } else if (userType === 'Helper') {
       claimantName = req.body.helperName;
     }
-    
-    // Send email with verification details
-    try {
-      // Import email services
-      const sendEmail = require('../utils/emailService');
-      const { getClaimVerificationEmail } = require('../utils/emailTemplates');
-      
-      // Prepare email data
-      const emailData = {
-        claimantName: claimantName,
-        userType: userType,
-        itemName: item.name,
-        verificationDate: formattedVerificationDate,
-        verificationTime: formattedVerificationTime,
-        foundLocation: item.location
-      };
-      
-      // Generate email content
-      const emailHtml = getClaimVerificationEmail(emailData);
-      
-      // Send the email
-      await sendEmail({
-        email: req.body.email,
-        subject: 'PICT Lost & Found: Item Claim Verification',
-        message: emailHtml
-      });
-      
-      console.log(`Verification email sent to ${req.body.email}`);
-    } catch (emailError) {
-      console.error('Error sending verification email:', emailError);
-      // Continue process even if email fails - don't block the API response
-    }
-    
+
+    // Send response immediately - don't wait for email
     res.status(200).json({
       success: true,
       data: item,
       claim: {
         verificationDate: formattedVerificationDate,
         verificationTime: formattedVerificationTime
+      }
+    });
+
+    // Send email asynchronously in the background (fire-and-forget)
+    setImmediate(async () => {
+      try {
+        // Import email services
+        const sendEmail = require('../utils/emailService');
+        const { getClaimVerificationEmail } = require('../utils/emailTemplates');
+
+        // Prepare email data
+        const emailData = {
+          claimantName: claimantName,
+          userType: userType,
+          itemName: item.name,
+          verificationDate: formattedVerificationDate,
+          verificationTime: formattedVerificationTime,
+          foundLocation: item.location
+        };
+
+        // Generate email content
+        const emailHtml = getClaimVerificationEmail(emailData);
+
+        // Send the email
+        await sendEmail({
+          email: req.body.email,
+          subject: 'PICT Lost & Found: Item Claim Verification',
+          message: emailHtml
+        });
+
+        console.log(`Verification email sent to ${req.body.email}`);
+      } catch (emailError) {
+        console.error('Error sending verification email:', emailError);
+        // Email failure doesn't affect the claim - it's already saved
       }
     });
   } catch (error) {
@@ -298,7 +302,7 @@ router.put('/:id/update-claimed', upload.single('image'), updateClaimedItem);
 router.patch('/:id/status', async (req, res) => {
   try {
     const { status } = req.body;
-    
+
     // Validate status
     if (!['available', 'claimed', 'delivered'].includes(status)) {
       return res.status(400).json({
@@ -306,7 +310,7 @@ router.patch('/:id/status', async (req, res) => {
         message: 'Invalid status value'
       });
     }
-    
+
     const Item = require('../models/Item');
     const item = await Item.findByIdAndUpdate(
       req.params.id,
@@ -316,14 +320,14 @@ router.patch('/:id/status', async (req, res) => {
         runValidators: true
       }
     );
-    
+
     if (!item) {
       return res.status(404).json({
         success: false,
         message: 'Item not found'
       });
     }
-    
+
     res.status(200).json({
       success: true,
       data: item
@@ -342,25 +346,25 @@ router.put('/:id/deliver', async (req, res) => {
   try {
     const itemId = req.params.id;
     const { claimIndex, verifiedBy } = req.body;
-    
+
     if (claimIndex === undefined || claimIndex === null) {
       return res.status(400).json({
         success: false,
         message: 'Claim index is required'
       });
     }
-    
+
     // Get the item
     const Item = require('../models/Item');
     const item = await Item.findById(itemId);
-    
+
     if (!item) {
       return res.status(404).json({
         success: false,
         message: 'Item not found'
       });
     }
-    
+
     // Check if the claim index is valid
     if (!item.claims || claimIndex < 0 || claimIndex >= item.claims.length) {
       return res.status(404).json({
@@ -368,13 +372,13 @@ router.put('/:id/deliver', async (req, res) => {
         message: 'Claim not found'
       });
     }
-    
+
     // Get the selected claim by index
     const selectedClaim = item.claims[claimIndex];
-    
+
     // Update the item as delivered
     item.status = 'delivered';
-    
+
     // Store the delivery information based on user type
     item.deliveredTo = {
       userType: selectedClaim.userType || 'Student',
@@ -395,9 +399,9 @@ router.put('/:id/deliver', async (req, res) => {
       deliveryDate: new Date(),
       verifiedBy: verifiedBy || 'guard'
     };
-    
+
     await item.save();
-    
+
     res.status(200).json({
       success: true,
       message: 'Item delivered successfully',
