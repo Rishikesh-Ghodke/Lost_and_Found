@@ -230,7 +230,7 @@ const claimItem = async (id, claimData) => {
       error.response?.data?.message ||
       error.message ||
       "Failed to claim item. Please try again.";
-    throw { message: errorMessage };
+    throw new Error(errorMessage);
   }
 };
 
@@ -261,7 +261,7 @@ const deliverItem = async (id, claimIndex, verifiedBy = "guard") => {
       error.response?.data?.message ||
       error.message ||
       "Failed to deliver item. Please try again.";
-    throw { message: errorMessage };
+    throw new Error(errorMessage);
   }
 };
 

@@ -18,4 +18,5 @@ export const getApiUrl = (endpoint) => {
   return `${config.API_URL}${endpoint}`;
 };
 
-export default { getImageUrl, getApiUrl };
+const urlHelper = { getImageUrl, getApiUrl };
+export default urlHelper;
